@@ -82,4 +82,6 @@ function pulse() {
   return comp('pulse', op, [dot, ring(1, 0, 'accent'), ring(2, 40, 'secondary'), ring(3, 80, 'accent')])
 }
 
-export const fallbacks = { orbit, pulse }
+import { library } from './library'
+
+export const fallbacks = { orbit, pulse, ...library }

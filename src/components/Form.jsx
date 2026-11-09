@@ -9,7 +9,7 @@ export function Field({ label, as = 'input', className = '', ...props }) {
       <Tag
         {...props}
         placeholder=" "
-        className={`peer block min-h-14 w-full rounded-xl border border-line bg-bg px-4 pb-2 pt-6 text-base text-fg outline-none transition duration-200 hover:border-fg/30 focus:border-accent focus:ring-4 focus:ring-accent/20 ${className}`}
+        className={`peer block min-h-14 w-full ${as === 'textarea' ? 'resize-none' : ''} rounded-xl border border-line bg-bg px-4 pb-2 pt-6 text-base text-fg outline-none transition duration-200 hover:border-fg/30 focus:border-accent focus:ring-4 focus:ring-accent/20 ${className}`}
       />
       <span className="pointer-events-none absolute left-4 top-4 origin-left font-mono text-[0.8rem] uppercase tracking-wider text-muted transition-all duration-200 peer-focus:top-2 peer-focus:scale-[0.85] peer-focus:text-accent peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:scale-[0.85]">
         {label}

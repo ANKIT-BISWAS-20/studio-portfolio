@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Northlight Studio">
+  <path d="M19 47V22L45 47V29" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 7.5Q46.3 13.7 52.5 15Q46.3 16.3 45 22.5Q43.7 16.3 37.5 15Q43.7 13.7 45 7.5Z" fill="currentColor"/>
+</svg>

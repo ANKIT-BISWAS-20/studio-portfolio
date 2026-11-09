@@ -14,22 +14,34 @@ export default function Contact() {
     budget: contact.defaultBudget,
     message: '',
   })
-  const [sent, setSent] = useState(false)
+  const [status, setStatus] = useState('idle') // idle | sending | sent | error
+  const sent = status === 'sent'
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const pick = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // Opens the visitor's email app with the brief pre-filled (no backend needed).
-  // To receive submissions in a dashboard instead, POST to Formspree / Web3Forms here (see README).
-  const submit = (e) => {
+  // Saves the enquiry through /api/contact (MongoDB). If that fails, falls back to the visitor's email app.
+  const submit = async (e) => {
     e.preventDefault()
-    const subject = encodeURIComponent(contact.mailSubject.replace('{type}', form.type))
-    const l = contact.labels
-    const body = encodeURIComponent(
-      `${l.name}: ${form.name}\n${l.email}: ${form.email}\n${l.type}: ${form.type}\n${l.budget}: ${form.budget}\n\n${form.message}`,
-    )
-    setSent(true)
-    window.location.href = `mailto:${site.email}?subject=${subject}&body=${body}`
+    if (status === 'sending') return
+    setStatus('sending')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, website: e.target.elements.website?.value || '' }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setStatus('sent')
+    } catch {
+      setStatus('error')
+      const l = contact.labels
+      const subject = encodeURIComponent(contact.mailSubject.replace('{type}', form.type))
+      const body = encodeURIComponent(
+        `${l.name}: ${form.name}\n${l.email}: ${form.email}\n${l.type}: ${form.type}\n${l.budget}: ${form.budget}\n\n${form.message}`,
+      )
+      window.location.href = `mailto:${site.email}?subject=${subject}&body=${body}`
+    }
   }
 
   return (
@@ -48,12 +60,19 @@ export default function Contact() {
 
           <Reveal delay={0.15} className="contact-links">
             <a className="contact-link" href={`mailto:${site.email}`} data-cursor>{site.email}</a>
+            {site.phone && (
+              <a className="contact-link" href={`tel:${site.phone.replace(/[^+\d]/g, '')}`} data-cursor>{site.phone}</a>
+            )}
             {site.whatsapp && (
               <a className="contact-link" href={`https://wa.me/${site.whatsapp}`} target="_blank" rel="noreferrer" data-cursor>
                 WhatsApp us
               </a>
             )}
           </Reveal>
+
+          <p className="contact-person mono">
+            {site.contactPerson.name} · {site.contactPerson.role}
+          </p>
 
           <div className="contact-lottie" aria-hidden>
             <LottiePlayer id="contact" />
@@ -65,6 +84,7 @@ export default function Contact() {
             onSubmit={submit}
             className="relative grid gap-4 rounded-[20px] border border-line bg-card p-5 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.35)] sm:gap-5 sm:p-8"
           >
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
             <Field label={contact.labels.name} name="name" required value={form.name} onChange={set('name')} autoComplete="name" />
             <Field label={contact.labels.email} name="email" type="email" required value={form.email} onChange={set('email')} autoComplete="email" inputMode="email" />
 
@@ -73,14 +93,15 @@ export default function Contact() {
               <Select label={contact.labels.budget} value={form.budget} onChange={pick('budget')} options={contact.budgets} />
             </div>
 
-            <Field as="textarea" rows={4} label={contact.labels.message} name="message" required value={form.message} onChange={set('message')} className="resize-y" />
+            <Field as="textarea" rows={4} label={contact.labels.message} name="message" required value={form.message} onChange={set('message')} />
 
             <div className="flex flex-wrap items-center gap-4">
               <Magnetic>
                 <Button type="submit" className="w-full sm:w-auto">
-                  {sent ? contact.sentLabel : contact.submitLabel}
+                  {status === 'sending' ? contact.sentLabel : sent ? contact.doneLabel : contact.submitLabel}
                 </Button>
               </Magnetic>
+              {status === 'error' && <p className="font-mono text-xs text-accent">{contact.errorNote}</p>}
               <AnimatePresence>
                 {sent && (
                   <motion.p

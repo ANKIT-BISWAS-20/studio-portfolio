@@ -50,7 +50,14 @@ function hexToRgba(raw, fallback = [0.4, 0.4, 0.9, 1]) {
 function readColors() {
   const cs = getComputedStyle(document.documentElement)
   const get = (name) => hexToRgba(cs.getPropertyValue(name))
-  return { accent: get('--accent'), secondary: get('--accent-2'), fg: get('--fg') }
+  return {
+    accent: get('--accent'),
+    secondary: get('--accent-2'),
+    fg: get('--fg'),
+    bg: get('--bg'),
+    card: get('--card'),
+    muted: get('--muted'),
+  }
 }
 
 export function useThemeColors() {

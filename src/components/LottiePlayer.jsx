@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { useReducedMotion } from 'framer-motion'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useInView, useReducedMotion } from 'framer-motion'
 import { animations } from '../config'
 import { loadLottie, tintLottie, useThemeColors } from '../lib/lottie'
 import { fallbacks } from '../animations/fallbacks'
@@ -12,14 +12,20 @@ const Lottie = lazy(() =>
 
 /**
  * Renders the animation configured under `id` in src/config/animations.js.
- * Uses the cached LottieFiles URL when present, otherwise the built-in fallback.
- * Re-colours itself when the theme changes.
+ * Uses the cached LottieFiles URL when present, otherwise the built-in vector animation.
+ * - Re-colours itself when the theme changes.
+ * - Plays only while on screen (saves battery and keeps scrolling smooth).
+ * - With "reduce motion" on, shows a still frame instead of looping.
+ * - `active` (optional) lets a parent force play/pause, e.g. on hover.
  */
-export default function LottiePlayer({ id, className = '', style, onComplete }) {
+export default function LottiePlayer({ id, className = '', style, onComplete, active = true }) {
   const spec = animations[id] || {}
   const reduce = useReducedMotion()
   const colors = useThemeColors()
   const [remote, setRemote] = useState(null)
+  const wrap = useRef(null)
+  const lottie = useRef(null)
+  const inView = useInView(wrap, { margin: '120px' })
 
   useEffect(() => {
     let alive = true
@@ -35,19 +41,36 @@ export default function LottiePlayer({ id, className = '', style, onComplete }) 
     return base ? tintLottie(base, colors) : null
   }, [remote, spec.fallback, colors])
 
-  if (!data) return null
+  const sync = useCallback(() => {
+    const a = lottie.current
+    if (!a) return
+    if (reduce) {
+      a.goToAndStop(spec.still ?? 0, true)
+    } else if (inView && active) {
+      a.play()
+    } else {
+      a.pause()
+    }
+  }, [reduce, inView, active, spec.still])
+
+  useEffect(sync, [sync, data])
+
   return (
-    <Suspense fallback={null}>
-      <Lottie
-        animationData={data}
-        loop={spec.loop !== false}
-        autoplay={!reduce}
-        className={className}
-        style={style}
-        onComplete={onComplete}
-        rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-        aria-hidden="true"
-      />
-    </Suspense>
+    <div ref={wrap} className={className} style={style} aria-hidden="true">
+      {data && (
+        <Suspense fallback={null}>
+          <Lottie
+            lottieRef={lottie}
+            animationData={data}
+            loop={spec.loop !== false}
+            autoplay={false}
+            onDOMLoaded={sync}
+            onComplete={onComplete}
+            rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Suspense>
+      )}
+    </div>
   )
 }

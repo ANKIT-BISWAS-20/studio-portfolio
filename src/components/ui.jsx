@@ -10,7 +10,28 @@ import {
   useReducedMotion,
 } from 'framer-motion'
 
+import { photoSet, photoAlt } from '../config/images'
+
 export const ease = [0.2, 0.7, 0.2, 1]
+
+const HOVER_QUERY = '(hover: hover) and (pointer: fine)'
+
+/**
+ * True only on devices with a real mouse/trackpad. Phones and tablets return false, so we
+ * can skip pointer-tracking effects (spotlight, parallax, tilt, magnetic pull) that only
+ * add work for the main thread on touch screens.
+ */
+export function useCanHover() {
+  const [can, setCan] = useState(() => (typeof window !== 'undefined' ? window.matchMedia(HOVER_QUERY).matches : false))
+  useEffect(() => {
+    const mq = window.matchMedia(HOVER_QUERY)
+    const on = () => setCan(mq.matches)
+    on()
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return can
+}
 
 /** Fades and lifts children into view once. */
 export function Reveal({ children, delay = 0, y = 32, className = '', as = 'div' }) {
@@ -46,6 +67,30 @@ export function SplitWords({ text, delay = 0, className = '' }) {
             {w}
           </motion.span>
           {i < words.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** Like SplitWords, but waits until the heading scrolls into view. */
+export function RevealWords({ text, delay = 0, className = '' }) {
+  const reduce = useReducedMotion()
+  const words = text.split(' ')
+  return (
+    <span className={className}>
+      {words.map((w, i) => (
+        <span key={i} className="word-mask">
+          <motion.span
+            className="word"
+            initial={reduce ? false : { y: '115%', rotate: 4 }}
+            whileInView={{ y: 0, rotate: 0 }}
+            viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+            transition={{ duration: 0.85, ease, delay: delay + i * 0.07 }}
+          >
+            {w}
+          </motion.span>
+          {i < words.length - 1 ? ' ' : ''}
         </span>
       ))}
     </span>
@@ -108,13 +153,14 @@ export function CountUp({ value, duration = 1.6 }) {
 export function Magnetic({ children, strength = 0.3 }) {
   const ref = useRef(null)
   const reduce = useReducedMotion()
+  const canHover = useCanHover()
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const sx = useSpring(x, { stiffness: 220, damping: 18, mass: 0.4 })
   const sy = useSpring(y, { stiffness: 220, damping: 18, mass: 0.4 })
 
   const move = (e) => {
-    if (reduce || e.pointerType === 'touch' || !ref.current) return
+    if (reduce || !canHover || e.pointerType !== 'mouse' || !ref.current) return
     const r = ref.current.getBoundingClientRect()
     x.set((e.clientX - (r.left + r.width / 2)) * strength)
     y.set((e.clientY - (r.top + r.height / 2)) * strength)
@@ -140,33 +186,38 @@ export function ScrollProgress() {
 
 /** Custom cursor: dot with a trailing ring that grows over interactive things. Mouse only. */
 export function Cursor() {
-  const [enabled, setEnabled] = useState(false)
+  const canHover = useCanHover()
+  const reduce = useReducedMotion()
   const [active, setActive] = useState(false)
   const x = useMotionValue(-100)
   const y = useMotionValue(-100)
-  const rx = useSpring(x, { stiffness: 260, damping: 28, mass: 0.5 })
-  const ry = useSpring(y, { stiffness: 260, damping: 28, mass: 0.5 })
+  const rx = useSpring(x, { stiffness: 320, damping: 30, mass: 0.4 })
+  const ry = useSpring(y, { stiffness: 320, damping: 30, mass: 0.4 })
+  const enabled = canHover && !reduce
 
   useEffect(() => {
-    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!fine || reduce) return
-    setEnabled(true)
+    if (!enabled) return
     document.documentElement.classList.add('has-cursor')
 
+    // Pointer events with a mouse-only filter: touch taps (and the mouse events browsers
+    // emulate after them) can never move the cursor, so there is nothing to lag on phones.
     const move = (e) => {
+      if (e.pointerType !== 'mouse') return
       x.set(e.clientX)
       y.set(e.clientY)
     }
-    const over = (e) => setActive(!!e.target.closest('a, button, input, textarea, [role="option"], [data-cursor]'))
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseover', over)
+    const over = (e) => {
+      if (e.pointerType !== 'mouse') return
+      setActive(!!e.target.closest('a, button, input, textarea, [role="option"], [role="radio"], [data-cursor]'))
+    }
+    window.addEventListener('pointermove', move, { passive: true })
+    window.addEventListener('pointerover', over, { passive: true })
     return () => {
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseover', over)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerover', over)
       document.documentElement.classList.remove('has-cursor')
     }
-  }, [x, y])
+  }, [enabled, x, y])
 
   if (!enabled) return null
   return (
@@ -193,5 +244,33 @@ export function Marquee({ items, reverse = false }) {
     <div className={`marquee ${reverse ? 'reverse' : ''}`}>
       <div className="marquee-track">{[0, 1].map(row)}</div>
     </div>
+  )
+}
+
+/**
+ * Lazy-loaded photo. `name` is a key from config/images.js or a full URL.
+ * If it fails to load, the optional `fallback` photo is tried, and after that the image
+ * simply disappears so whatever sits behind it (the card's gradient art) shows instead.
+ */
+export function Photo({ name, fallback, alt, sizes = '(max-width: 900px) 100vw, 50vw', className = '', eager = false }) {
+  const [src, setSrc] = useState(name)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    setSrc(name)
+    setFailed(false)
+  }, [name])
+  if (failed || !src) return null
+  const set = photoSet(src)
+  return (
+    <img
+      {...set}
+      sizes={set.srcSet ? sizes : undefined}
+      alt={alt ?? photoAlt(src)}
+      className={`photo ${className}`}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => (fallback && src !== fallback ? setSrc(fallback) : setFailed(true))}
+    />
   )
 }

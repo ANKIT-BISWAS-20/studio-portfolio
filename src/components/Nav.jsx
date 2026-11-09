@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { site, nav, theme as themeConfig } from '../config'
+import { site, nav } from '../config'
+import PalettePicker from './PalettePicker'
+import { Brand } from './Logo'
 
 export default function Nav({ theme, toggleTheme, palette, setPalette }) {
   const [open, setOpen] = useState(false)
-  const palettes = Object.entries(themeConfig.palettes)
 
   // lock page scroll while the mobile menu is open; close on Escape
   useEffect(() => {
@@ -25,8 +26,7 @@ export default function Nav({ theme, toggleTheme, palette, setPalette }) {
       transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1], delay: 0.1 }}
     >
       <a href="#top" className="brand" aria-label={`${site.name} home`} onClick={() => setOpen(false)}>
-        <span className="brand-mark" />
-        <span className="brand-name">{site.name}</span>
+        <Brand name={site.name} />
       </a>
 
       <nav className="nav-links" aria-label="Primary">
@@ -36,21 +36,7 @@ export default function Nav({ theme, toggleTheme, palette, setPalette }) {
       </nav>
 
       <div className="nav-tools">
-        {palettes.length > 1 && (
-          <div className="swatches" role="group" aria-label="Colour palette">
-            {palettes.map(([id, p]) => (
-              <button
-                key={id}
-                className={`swatch ${palette === id ? 'is-on' : ''}`}
-                style={{ '--sw': p.swatch }}
-                onClick={() => setPalette(id)}
-                aria-label={`${p.label} palette`}
-                aria-pressed={palette === id}
-                title={p.label}
-              />
-            ))}
-          </div>
-        )}
+        <PalettePicker palette={palette} setPalette={setPalette} />
         <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle light and dark theme" title="Toggle theme">
           <motion.span
             key={theme}
