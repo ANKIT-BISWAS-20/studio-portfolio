@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Reveal, Magnetic } from './ui'
 import Button from './Button'
@@ -15,7 +15,23 @@ export default function Contact() {
     message: '',
   })
   const [status, setStatus] = useState('idle') // idle | sending | sent | error
+  const [cooldownUntil, setCooldownUntil] = useState(0)
   const sent = status === 'sent'
+
+  useEffect(() => {
+    if (!cooldownUntil) return undefined
+    const remaining = cooldownUntil - Date.now()
+    if (remaining <= 0) {
+      setCooldownUntil(0)
+      setStatus('idle')
+      return undefined
+    }
+    const timeout = window.setTimeout(() => {
+      setCooldownUntil(0)
+      setStatus('idle')
+    }, remaining)
+    return () => window.clearTimeout(timeout)
+  }, [cooldownUntil])
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const pick = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
@@ -23,7 +39,7 @@ export default function Contact() {
   // Saves the enquiry through /api/contact (MongoDB). If that fails, falls back to the visitor's email app.
   const submit = async (e) => {
     e.preventDefault()
-    if (status === 'sending') return
+    if (status === 'sending' || status === 'sent' || status === 'limited') return
     setStatus('sending')
     try {
       const res = await fetch('/api/contact', {
@@ -31,7 +47,14 @@ export default function Contact() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, website: e.target.elements.website?.value || '' }),
       })
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get('Retry-After')) || 600
+        setCooldownUntil(Date.now() + retryAfter * 1000)
+        setStatus('limited')
+        return
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setCooldownUntil(Date.now() + 10 * 60 * 1000)
       setStatus('sent')
     } catch {
       setStatus('error')
@@ -97,11 +120,12 @@ export default function Contact() {
 
             <div className="flex flex-wrap items-center gap-4">
               <Magnetic>
-                <Button type="submit" className="w-full sm:w-auto">
-                  {status === 'sending' ? contact.sentLabel : sent ? contact.doneLabel : contact.submitLabel}
+                <Button type="submit" disabled={status === 'sending' || sent || status === 'limited'} className="w-full sm:w-auto">
+                  {status === 'sending' ? contact.sentLabel : sent ? contact.doneLabel : status === 'limited' ? contact.rateLimitLabel : contact.submitLabel}
                 </Button>
               </Magnetic>
               {status === 'error' && <p className="font-mono text-xs text-accent">{contact.errorNote}</p>}
+              {status === 'limited' && <p className="font-mono text-xs text-accent">{contact.rateLimitNote}</p>}
               <AnimatePresence>
                 {sent && (
                   <motion.p

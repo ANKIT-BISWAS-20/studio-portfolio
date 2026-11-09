@@ -32,6 +32,8 @@ body {
   min-width: 320px;
   background: var(--bg);
   color: var(--fg);
+  -webkit-user-select: none;
+  user-select: none;
   font-family: var(--body);
   font-size: clamp(16px, 0.35vw + 15px, 18px);
   line-height: 1.6;
@@ -39,6 +41,10 @@ body {
   text-rendering: optimizeLegibility;
   transition: background 0.5s ease, color 0.5s ease;
   overflow-x: hidden;
+}
+input, textarea, [contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 ::selection { background: var(--accent); color: var(--on-accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }

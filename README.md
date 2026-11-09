@@ -64,7 +64,10 @@ On phones and tablets (no mouse) the site skips the custom cursor, hero spotligh
 
 The enquiry form POSTs to `api/contact.js` (a Vercel serverless function), which saves each message to
 database `northlight_studio`, collection `contact_submissions` (created automatically on first submit).
-If saving fails, the visitor's email app opens instead.
+If saving fails, the visitor's email app opens instead. Successful submissions are limited to one every
+10 minutes per visitor; the limit is enforced by the API and the visitor's IP is stored only as an HMAC
+key in the temporary rate-limit collection. Optionally set `CONTACT_RATE_LIMIT_SECRET` to a stable secret
+for generating those keys (otherwise `MONGODB_URI` is used).
 
 1. Vercel → Project → Settings → Environment Variables: add `MONGODB_URI` (and optionally `MONGODB_DB`), then redeploy.
 2. MongoDB Atlas → Network Access: allow `0.0.0.0/0` (Vercel has no fixed IPs).

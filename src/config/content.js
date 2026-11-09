@@ -80,7 +80,9 @@ export const contact = {
   submitLabel: 'Send enquiry',
   sentLabel: 'Sending…',
   doneLabel: 'Sent, thank you!',
+  rateLimitLabel: 'Please wait',
   errorNote: "We couldn't save that just now, so your email app is opening instead.",
+  rateLimitNote: 'You recently sent an enquiry. Please wait up to 10 minutes before sending another.',
   sentNote: 'Thanks! Your enquiry has reached us and we will reply by email.',
   mailSubject: 'New project enquiry: {type}', // {type} is replaced
   labels: {
